@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kadr — AI video generator</title>
+<meta name="description" content="Matnli tavsifdan bir necha soniyada video yarating.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0B12;
+    --surface:#15141F;
+    --surface-2:#1D1B2A;
+    --border:#2A2836;
+    --text:#F1F0F5;
+    --muted:#8E8CA0;
+    --accent-1:#7C5CFF;
+    --accent-2:#22D3EE;
+    --danger:#FF5C7A;
+    --success:#34D399;
+    --gradient: linear-gradient(115deg, var(--accent-1), var(--accent-2));
+    --radius: 18px;
+    --radius-sm: 10px;
+    --shadow: 0 20px 60px -20px rgba(124,92,255,0.35);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(124,92,255,0.20), transparent 60%),
+      radial-gradient(ellipse 700px 400px at 100% 0%, rgba(34,211,238,0.14), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Manrope',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Unbounded',sans-serif;}
+  a{color:inherit;}
+  button{font-family:inherit;}
+  ::selection{background:var(--accent-1); color:#fff;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;} }
+
+  /* ── layout shell ─────────────────────────────── */
+  .wrap{max-width:520px; margin:0 auto; padding:0 18px 100px;}
+  @media (min-width:860px){ .wrap{max-width:760px;} }
+
+  nav{
+    position:sticky; top:0; z-index:40;
+    backdrop-filter:blur(14px);
+    background:rgba(11,11,18,0.75);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-inner{max-width:520px; margin:0 auto; padding:14px 18px; display:flex; align-items:center; justify-content:space-between;}
+  @media (min-width:860px){ .nav-inner{max-width:760px;} }
+  .logo{display:flex; align-items:center; gap:8px; font-family:'Unbounded'; font-weight:800; font-size:18px; letter-spacing:-0.02em;}
+  .logo-mark{width:26px; height:26px; border-radius:8px; background:var(--gradient); position:relative; flex:none;}
+  .logo-mark::after{content:""; position:absolute; inset:7px; border-radius:3px; background:var(--bg);}
+  .credits-pill{
+    display:flex; align-items:center; gap:6px;
+    background:var(--surface-2); border:1px solid var(--border);
+    padding:7px 12px 7px 10px; border-radius:999px; font-weight:700; font-size:13px;
+    cursor:pointer;
+  }
+  .credits-pill .dot{width:7px; height:7px; border-radius:50%; background:var(--gradient);}
+
+  /* ── hero ──────────────────────────────────────── */
+  .hero{padding:52px 0 30px; text-align:left;}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--accent-2); background:rgba(34,211,238,0.08); border:1px solid rgba(34,211,238,0.25);
+    padding:6px 12px; border-radius:999px; margin-bottom:20px;
+  }
+  .hero h1{
+    font-size:38px; line-height:1.08; font-weight:800; letter-spacing:-0.02em; margin:0 0 16px;
+  }
+  @media (min-width:600px){ .hero h1{font-size:50px;} }
+  .hero h1 .grad{background:var(--gradient); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .hero p{color:var(--muted); font-size:16px; line-height:1.6; max-width:46ch; margin:0 0 26px;}
+  .cta-row{display:flex; gap:12px; flex-wrap:wrap;}
+  .btn{
+    border:none; cursor:pointer; border-radius:999px; padding:14px 24px; font-weight:700; font-size:15px;
+    display:inline-flex; align-items:center; gap:8px; transition:transform .15s ease, opacity .15s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--gradient); color:#0B0B12;}
+  .btn-primary:hover{opacity:0.92;}
+  .btn-ghost{background:var(--surface-2); color:var(--text); border:1px solid var(--border);}
+
+  /* filmstrip signature element */
+  .filmstrip{display:flex; gap:6px; margin-top:36px; overflow:hidden; border-radius:12px;}
+  .filmstrip .frame{
+    flex:1; aspect-ratio:9/16; border-radius:8px;
+    background:linear-gradient(160deg, var(--surface-2), var(--surface));
+    border:1px solid var(--border); position:relative; overflow:hidden;
+  }
+  .filmstrip .frame::before{
+    content:""; position:absolute; inset:0;
+    background:var(--gradient); opacity:0; animation:sweep 3.6s ease-in-out infinite;
+  }
+  .filmstrip .frame:nth-child(1)::before{animation-delay:0s;}
+  .filmstrip .frame:nth-child(2)::before{animation-delay:0.4s;}
+  .filmstrip .frame:nth-child(3)::before{animation-delay:0.8s;}
+  .filmstrip .frame:nth-child(4)::before{animation-delay:1.2s;}
+  .filmstrip .frame:nth-child(5)::before{animation-delay:1.6s;}
+  @keyframes sweep{ 0%,100%{opacity:0;} 50%{opacity:0.5;} }
+
+  /* ── section headers ──────────────────────────── */
+  .section{padding:44px 0 0;}
+  .section-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:16px;}
+  .section-head h2{font-size:20px; margin:0; font-weight:600; letter-spacing:-0.01em;}
+  .section-head .idx{color:var(--muted); font-size:13px; font-weight:600;}
+
+  /* ── card / form ───────────────────────────────── */
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px;
+  }
+  label.field-label{display:block; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:8px;}
+  textarea, input[type=text], input[type=tel]{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius:var(--radius-sm); padding:14px; font-size:15px; font-family:inherit; resize:vertical;
+    outline:none; transition:border-color .15s;
+  }
+  textarea:focus, input:focus{border-color:var(--accent-1);}
+  textarea{min-height:96px;}
+
+  .upload-row{display:flex; align-items:center; gap:12px; margin-top:14px;}
+  .upload-box{
+    width:64px; height:64px; border-radius:var(--radius-sm); border:1.5px dashed var(--border);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;
+    background:var(--surface-2); overflow:hidden; position:relative;
+  }
+  .upload-box img{width:100%; height:100%; object-fit:cover;}
+  .upload-box svg{opacity:0.6;}
+  .upload-meta{font-size:13px; color:var(--muted); line-height:1.5;}
+  .upload-meta button{background:none; border:none; color:var(--danger); font-weight:700; cursor:pointer; padding:0; font-size:13px;}
+
+  .field-block{margin-top:18px;}
+  .ratio-grid{display:flex; gap:10px; flex-wrap:wrap;}
+  .ratio-opt{
+    flex:1; min-width:88px; background:var(--surface-2); border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    padding:12px 10px; cursor:pointer; text-align:center; transition:border-color .15s, background .15s;
+  }
+  .ratio-opt.active{border-color:var(--accent-1); background:rgba(124,92,255,0.10);}
+  .ratio-shape{margin:0 auto 8px; background:var(--border); border-radius:3px;}
+  .ratio-opt[data-ratio="9:16"] .ratio-shape{width:22px; height:38px;}
+  .ratio-opt[data-ratio="16:9"] .ratio-shape{width:38px; height:22px;}
+  .ratio-opt[data-ratio="1:1"] .ratio-shape{width:30px; height:30px;}
+  .ratio-opt.active .ratio-shape{background:var(--gradient);}
+  .ratio-label{font-size:12px; font-weight:700; color:var(--muted);}
+  .ratio-opt.active .ratio-label{color:var(--text);}
+
+  .pill-row{display:flex; gap:10px;}
+  .pill-opt{
+    flex:1; background:var(--surface-2); border:1.5px solid var(--border); border-radius:999px;
+    padding:11px; text-align:center; font-weight:700; font-size:14px; cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .pill-opt.active{border-color:var(--accent-2); background:rgba(34,211,238,0.10); color:var(--text);}
+  .pill-opt:not(.active){color:var(--muted);}
+  .cost-tag{font-size:11px; font-weight:600; color:var(--muted); display:block; margin-top:2px;}
+
+  .generate-btn{width:100%; justify-content:center; margin-top:22px; font-size:16px; padding:16px;}
+  .generate-btn:disabled{opacity:0.5; cursor:not-allowed;}
+
+  /* ── progress state ───────────────────────────── */
+  .progress-card{margin-top:16px; display:none;}
+  .progress-card.show{display:block;}
+  .progress-strip{display:flex; gap:5px; margin-bottom:14px;}
+  .progress-strip .seg{flex:1; height:5px; border-radius:3px; background:var(--surface-2); overflow:hidden; position:relative;}
+  .progress-strip .seg .fill{position:absolute; inset:0; background:var(--gradient); transform:translateX(-100%); animation:load 1.4s ease-in-out infinite;}
+  .progress-strip .seg:nth-child(2) .fill{animation-delay:0.15s;}
+  .progress-strip .seg:nth-child(3) .fill{animation-delay:0.3s;}
+  .progress-strip .seg:nth-child(4) .fill{animation-delay:0.45s;}
+  .progress-strip .seg:nth-child(5) .fill{animation-delay:0.6s;}
+  @keyframes load{ 0%{transform:translateX(-100%);} 50%{transform:translateX(0);} 100%{transform:translateX(100%);} }
+  .progress-text{font-size:14px; color:var(--muted); text-align:center;}
+
+  .result-card{margin-top:16px; display:none;}
+  .result-card.show{display:block;}
+  .result-video{width:100%; border-radius:var(--radius-sm); background:#000; display:block;}
+  .result-actions{display:flex; gap:10px; margin-top:14px;}
+  .result-actions .btn{flex:1; justify-content:center;}
+
+  .error-box{
+    margin-top:16px; display:none; padding:14px 16px; border-radius:var(--radius-sm);
+    background:rgba(255,92,122,0.08); border:1px solid rgba(255,92,122,0.3); color:#FFB3C1;
+    font-size:14px; line-height:1.5;
+  }
+  .error-box.show{display:flex; align-items:flex-start; gap:10px;}
+  .error-box a, .error-box button.link{color:var(--accent-2); font-weight:700; background:none; border:none; padding:0; cursor:pointer; font-size:14px; text-decoration:underline;}
+
+  /* ── history ───────────────────────────────────── */
+  .history-list{display:flex; flex-direction:column; gap:12px;}
+  .history-item{
+    display:flex; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:12px; align-items:center;
+  }
+  .history-thumb{
+    width:56px; height:56px; border-radius:8px; background:var(--surface-2); flex:none; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .history-thumb img, .history-thumb video{width:100%; height:100%; object-fit:cover;}
+  .history-info{flex:1; min-width:0;}
+  .history-prompt{font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .history-meta{font-size:12px; color:var(--muted); margin-top:3px;}
+  .status-badge{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px;}
+  .status-badge.completed{background:rgba(52,211,153,0.12); color:var(--success);}
+  .status-badge.processing{background:rgba(124,92,255,0.14); color:var(--accent-1);}
+  .status-badge.failed{background:rgba(255,92,122,0.12); color:var(--danger);}
+  .dl-btn{flex:none; width:38px; height:38px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .empty-state{text-align:center; padding:36px 20px; color:var(--muted); font-size:14px;}
+
+  /* ── credits section ───────────────────────────── */
+  .credit-hero{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;}
+  .credit-number{font-family:'Unbounded'; font-size:40px; font-weight:800;}
+  .credit-number span{font-size:16px; color:var(--muted); font-family:'Manrope'; font-weight:600;}
+  .pkg-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px;}
+  .pkg-card{
+    background:var(--surface-2); border:1.5px solid var(--border); border-radius:var(--radius-sm);
+    padding:14px 10px; text-align:center; cursor:pointer; transition:border-color .15s;
+  }
+  .pkg-card.active{border-color:var(--accent-1);}
+  .pkg-credits{font-weight:800; font-size:18px;}
+  .pkg-price{font-size:12px; color:var(--muted); margin-top:4px;}
+  .provider-row{display:flex; gap:10px; margin-top:16px;}
+  .provider-opt{
+    flex:1; padding:12px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:var(--surface-2);
+    text-align:center; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .provider-opt.active{border-color:var(--accent-2);}
+
+  /* ── auth modal ────────────────────────────────── */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
+    display:none; align-items:flex-end; justify-content:center; z-index:100;
+  }
+  .modal-backdrop.show{display:flex;}
+  @media (min-width:600px){ .modal-backdrop{align-items:center;} }
+  .modal{
+    background:var(--surface); border:1px solid var(--border); border-radius:22px 22px 0 0;
+    padding:26px 22px 30px; width:100%; max-width:440px; box-shadow:var(--shadow);
+  }
+  @media (min-width:600px){ .modal{border-radius:22px;} }
+  .modal h3{margin:0 0 6px; font-size:20px;}
+  .modal p.sub{color:var(--muted); font-size:14px; margin:0 0 20px;}
+  .modal .btn{width:100%; justify-content:center; margin-top:16px;}
+  .modal-close{float:right; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer;}
+  .otp-inputs{display:flex; gap:8px;}
+  .otp-inputs input{
+    width:100%; text-align:center; font-size:22px; font-weight:800; padding:12px 0;
+    background:var(--surface-2); border:1.5px solid var(--border); border-radius:10px; color:var(--text);
+  }
+  .resend-row{text-align:center; margin-top:14px; font-size:13px; color:var(--muted);}
+  .resend-row button{background:none; border:none; color:var(--accent-2); font-weight:700; cursor:pointer; font-size:13px;}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--surface-2); border:1px solid var(--border); padding:12px 20px; border-radius:999px;
+    font-size:13px; font-weight:600; z-index:200; transition:all .25s ease; pointer-events:none;
+    box-shadow:0 10px 30px -10px rgba(0,0,0,0.5);
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="logo"><span class="logo-mark"></span> Kadr</div>
+    <button class="credits-pill" id="creditsPill" onclick="location.hash='#credits'">
+      <span class="dot"></span><span id="creditsPillText">— kredit</span>
+    </button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- 1. HERO -->
+  <section class="hero">
+    <span class="eyebrow">● AI video generator</span>
+    <h1>Matningizni <span class="grad">kadrga</span> aylantiring</h1>
+    <p>Bir jumla yozing — sun'iy intellekt uni professional darajadagi videoga aylantiradi. Ijtimoiy tarmoqlar uchun tayyor, bir necha soniyada.</p>
+    <div class="cta-row">
+      <button class="btn btn-primary" onclick="document.getElementById('generate').scrollIntoView({behavior:'smooth'})">
+        Video yaratish →
+      </button>
+      <button class="btn btn-ghost" onclick="document.getElementById('history-section').scrollIntoView({behavior:'smooth'})">
+        Tarixni ko'rish
+      </button>
+    </div>
+    <div class="filmstrip">
+      <div class="frame"></div><div class="frame"></div><div class="frame"></div><div class="frame"></div><div class="frame"></div>
+    </div>
+  </section>
+
+  <!-- 2. GENERATE FORM -->
+  <section class="section" id="generate">
+    <div class="section-head"><h2>Video yaratish</h2><span class="idx">01</span></div>
+    <div class="card">
+      <label class="field-label">Tavsif (prompt)</label>
+      <textarea id="promptInput" placeholder="Masalan: Toshkent tunda, neon chiroqlar aks etgan yomg'irli ko'cha, sinematik kamera harakati..."></textarea>
+
+      <div class="upload-row">
+        <div class="upload-box" onclick="document.getElementById('imageInput').click()">
+          <img id="imagePreview" class="hidden">
+          <svg id="uploadIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </div>
+        <div class="upload-meta">
+          <div id="uploadLabel">Rasm qo'shish (ixtiyoriy)</div>
+          <button id="removeImageBtn" class="hidden" onclick="clearImage()">Olib tashlash</button>
+        </div>
+        <input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp" class="hidden">
+      </div>
+
+      <div class="field-block">
+        <label class="field-label">Format</label>
+        <div class="ratio-grid" id="ratioGrid">
+          <div class="ratio-opt active" data-ratio="9:16"><div class="ratio-shape"></div><div class="ratio-label">9:16</div></div>
+          <div class="ratio-opt" data-ratio="16:9"><div class="ratio-shape"></div><div class="ratio-label">16:9</div></div>
+          <div class="ratio-opt" data-ratio="1:1"><div class="ratio-shape"></div><div class="ratio-label">1:1</div></div>
+        </div>
+      </div>
+
+      <div class="field-block">
+        <label class="field-label">Davomiylik</label>
+        <div class="pill-row" id="durationRow">
+          <div class="pill-opt" data-duration="3">3s <span class="cost-tag">1 kredit</span></div>
+          <div class="pill-opt active" data-duration="5">5s <span class="cost-tag">2 kredit</span></div>
+          <div class="pill-opt" data-duration="10">10s <span class="cost-tag">4 kredit</span></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary generate-btn" id="generateBtn" onclick="submitGeneration()">
+        Video yaratish
+      </button>
+
+      <div class="progress-card" id="progressCard">
+        <div class="progress-strip">
+          <div class="seg"><div class="fill"></div></div>
+          <div class="seg"><div class="fill"></div></div>
+          <div class="seg"><div class="fill"></div></div>
+          <div class="seg"><div class="fill"></div></div>
+          <div class="seg"><div class="fill"></div></div>
+        </div>
+        <div class="progress-text" id="progressText">Video yaratilmoqda...</div>
+      </div>
+
+      <div class="result-card" id="resultCard">
+        <video class="result-video" id="resultVideo" controls playsinline></video>
+        <div class="result-actions">
+          <a class="btn btn-primary" id="downloadBtn" download>⬇ Yuklab olish</a>
+          <button class="btn btn-ghost" onclick="resetForm()">Yana yaratish</button>
+        </div>
+      </div>
+
+      <div class="error-box" id="errorBox">
+        <span>⚠️</span><span id="errorText"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. HISTORY -->
+  <section class="section" id="history-section">
+    <div class="section-head"><h2>Tarix</h2><span class="idx">02</span></div>
+    <div class="history-list" id="historyList">
+      <div class="empty-state">Hali video yaratmagansiz</div>
+    </div>
+  </section>
+
+  <!-- 4. CREDITS -->
+  <section class="section" id="credits">
+    <div class="section-head"><h2>Kreditlar</h2><span class="idx">03</span></div>
+    <div class="card">
+      <div class="credit-hero">
+        <div>
+          <div class="credit-number" id="creditBalance">— <span>kredit</span></div>
+        </div>
+      </div>
+      <label class="field-label">Paket tanlang</label>
+      <div class="pkg-grid" id="pkgGrid"></div>
+      <label class="field-label" style="margin-top:18px">To'lov usuli</label>
+      <div class="provider-row" id="providerRow">
+        <div class="provider-opt active" data-provider="payme">Payme</div>
+        <div class="provider-opt" data-provider="click">Click</div>
+        <div class="provider-opt" data-provider="uzum">Uzum</div>
+      </div>
+      <button class="btn btn-primary generate-btn" onclick="buyCredits()">Sotib olish</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-backdrop" id="authBackdrop">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div id="authStepPhone">
+      <h3>Kirish</h3>
+      <p class="sub">Telefon raqamingizni kiriting, tasdiqlash kodini yuboramiz.</p>
+      <label class="field-label">Telefon raqam</label>
+      <input type="tel" id="phoneInput" placeholder="+998 90 123 45 67">
+      <button class="btn btn-primary" onclick="requestOtp()" id="requestOtpBtn">Kod olish</button>
+    </div>
+    <div id="authStepOtp" class="hidden">
+      <h3>Kodni kiriting</h3>
+      <p class="sub" id="otpSubtext">SMS orqali yuborilgan kodni kiriting.</p>
+      <input type="text" id="otpInput" placeholder="000000" maxlength="6" style="font-size:22px; font-weight:800; text-align:center; letter-spacing:6px;">
+      <button class="btn btn-primary" onclick="verifyOtp()" id="verifyOtpBtn">Tasdiqlash</button>
+      <div class="resend-row">Kod kelmadimi? <button onclick="requestOtp(true)">Qayta yuborish</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+const API = '/api';
+let state = {
+  token: localStorage.getItem('kadr_token') || null,
+  user: null,
+  selectedRatio: '9:16',
+  selectedDuration: 5,
+  selectedImageFile: null,
+  selectedPackage: null,
+  selectedProvider: 'payme',
+  pollTimer: null,
+  pollStartedAt: null,
+};
+
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
+function authHeaders(extra = {}) {
+  const h = { ...extra };
+  if (state.token) h['Authorization'] = `Bearer ${state.token}`;
+  return h;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────
+function openAuth() {
+  document.getElementById('authBackdrop').classList.add('show');
+  document.getElementById('authStepPhone').classList.remove('hidden');
+  document.getElementById('authStepOtp').classList.add('hidden');
+}
+function closeAuth() {
+  document.getElementById('authBackdrop').classList.remove('show');
+}
+
+let pendingPhone = null;
+
+async function requestOtp(isResend = false) {
+  const phoneEl = document.getElementById('phoneInput');
+  const phone = isResend ? pendingPhone : phoneEl.value.trim();
+  if (!phone) { showToast('Telefon raqamini kiriting'); return; }
+
+  const btn = document.getElementById('requestOtpBtn');
+  btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
+  try {
+    const res = await fetch(`${API}/auth/request-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Xatolik');
+
+    pendingPhone = phone;
+    document.getElementById('authStepPhone').classList.add('hidden');
+    document.getElementById('authStepOtp').classList.remove('hidden');
+    if (data.devCode) {
+      document.getElementById('otpSubtext').textContent = `[DEV] Kod: ${data.devCode}`;
+    }
+    showToast(isResend ? 'Kod qayta yuborildi' : 'Kod yuborildi');
+  } catch (err) {
+    showToast(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Kod olish';
+  }
+}
+
+async function verifyOtp() {
+  const code = document.getElementById('otpInput').value.trim();
+  if (!code) { showToast('Kodni kiriting'); return; }
+  const btn = document.getElementById('verifyOtpBtn');
+  btn.disabled = true; btn.textContent = 'Tekshirilmoqda...';
+  try {
+    const res = await fetch(`${API}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: pendingPhone, code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Kod noto\'g\'ri');
+
+    state.token = data.token;
+    state.user = data.user;
+    localStorage.setItem('kadr_token', state.token);
+    closeAuth();
+    updateCreditsUI();
+    loadHistory();
+    showToast('Xush kelibsiz!');
+  } catch (err) {
+    showToast(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Tasdiqlash';
+  }
+}
+
+async function loadMe() {
+  if (!state.token) return;
+  try {
+    const res = await fetch(`${API}/auth/me`, { headers: authHeaders() });
+    if (!res.ok) { state.token = null; localStorage.removeItem('kadr_token'); return; }
+    const data = await res.json();
+    state.user = data.user;
+    updateCreditsUI();
+  } catch (err) { /* offline — ignore */ }
+}
+
+function updateCreditsUI() {
+  const balance = state.user ? state.user.credits : null;
+  document.getElementById('creditsPillText').textContent = balance === null ? 'Kirish' : `${balance} kredit`;
+  document.getElementById('creditBalance').innerHTML = balance === null ? '—' : `${balance} <span>kredit</span>`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// IMAGE UPLOAD
+// ─────────────────────────────────────────────────────────────
+document.getElementById('imageInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.selectedImageFile = file;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = document.getElementById('imagePreview');
+    img.src = ev.target.result;
+    img.classList.remove('hidden');
+    document.getElementById('uploadIcon').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+  document.getElementById('uploadLabel').textContent = file.name.length > 22 ? file.name.slice(0,20)+'…' : file.name;
+  document.getElementById('removeImageBtn').classList.remove('hidden');
+});
+function clearImage() {
+  state.selectedImageFile = null;
+  document.getElementById('imageInput').value = '';
+  document.getElementById('imagePreview').classList.add('hidden');
+  document.getElementById('uploadIcon').classList.remove('hidden');
+  document.getElementById('uploadLabel').textContent = "Rasm qo'shish (ixtiyoriy)";
+  document.getElementById('removeImageBtn').classList.add('hidden');
+}
+
+// ─────────────────────────────────────────────────────────────
+// FORM SELECTORS
+// ─────────────────────────────────────────────────────────────
+document.getElementById('ratioGrid').addEventListener('click', (e) => {
+  const opt = e.target.closest('.ratio-opt');
+  if (!opt) return;
+  document.querySelectorAll('.ratio-opt').forEach(o => o.classList.remove('active'));
+  opt.classList.add('active');
+  state.selectedRatio = opt.dataset.ratio;
+});
+document.getElementById('durationRow').addEventListener('click', (e) => {
+  const opt = e.target.closest('.pill-opt');
+  if (!opt) return;
+  document.querySelectorAll('.pill-opt').forEach(o => o.classList.remove('active'));
+  opt.classList.add('active');
+  state.selectedDuration = Number(opt.dataset.duration);
+});
+
+// ─────────────────────────────────────────────────────────────
+// GENERATION FLOW
+// ─────────────────────────────────────────────────────────────
+function hideResultStates() {
+  document.getElementById('progressCard').classList.remove('show');
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('errorBox').classList.remove('show');
+}
+
+async function submitGeneration() {
+  if (!state.token) { openAuth(); return; }
+
+  const prompt = document.getElementById('promptInput').value.trim();
+  if (!prompt) { showToast('Tavsif kiriting'); return; }
+
+  hideResultStates();
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('progressCard').classList.add('show');
+  document.getElementById('progressText').textContent = 'Video yaratilmoqda...';
+
+  try {
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    formData.append('aspectRatio', state.selectedRatio);
+    formData.append('duration', state.selectedDuration);
+    if (state.selectedImageFile) formData.append('image', state.selectedImageFile);
+
+    const res = await fetch(`${API}/generate`, {
+      method: 'POST',
+      headers: authHeaders(), // no Content-Type — browser sets multipart boundary
+      body: formData,
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      if (data.error === 'INSUFFICIENT_CREDITS') {
+        showError(`Kredit yetarli emas (${data.required} kerak, ${data.balance} bor).`, true);
+      } else {
+        showError(data.message || 'Xatolik yuz berdi');
+      }
+      document.getElementById('progressCard').classList.remove('show');
+      btn.disabled = false;
+      return;
+    }
+
+    if (state.user) state.user.credits = data.creditsRemaining;
+    updateCreditsUI();
+    pollStatus(data.jobId);
+  } catch (err) {
+    showError('Server bilan bog\'lanib bo\'lmadi');
+    document.getElementById('progressCard').classList.remove('show');
+    btn.disabled = false;
+  }
+}
+
+function pollStatus(jobId) {
+  state.pollStartedAt = Date.now();
+  clearInterval(state.pollTimer);
+
+  const check = async () => {
+    if (Date.now() - state.pollStartedAt > POLL_TIMEOUT_MS) {
+      clearInterval(state.pollTimer);
+      document.getElementById('progressCard').classList.remove('show');
+      showError('Vaqt tugadi. Iltimos, birozdan keyin tarixdan tekshiring yoki qayta urinib ko\'ring.');
+      document.getElementById('generateBtn').disabled = false;
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/status/${jobId}`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      if (data.status === 'completed') {
+        clearInterval(state.pollTimer);
+        document.getElementById('progressCard').classList.remove('show');
+        showResult(data);
+        document.getElementById('generateBtn').disabled = false;
+        loadHistory();
+      } else if (data.status === 'failed') {
+        clearInterval(state.pollTimer);
+        document.getElementById('progressCard').classList.remove('show');
+        showError(data.errorMessage || 'Video yaratib bo\'lmadi. Kreditingiz qaytarildi.');
+        document.getElementById('generateBtn').disabled = false;
+        loadMe();
+        loadHistory();
+      }
+      // else: still processing, keep polling
+    } catch (err) {
+      // transient network error — keep polling silently until timeout
+    }
+  };
+
+  check();
+  state.pollTimer = setInterval(check, POLL_INTERVAL_MS);
+}
+
+function showResult(data) {
+  const card = document.getElementById('resultCard');
+  const video = document.getElementById('resultVideo');
+  const dl = document.getElementById('downloadBtn');
+  video.src = data.videoUrl;
+  dl.href = data.videoUrl;
+  card.classList.add('show');
+}
+
+function showError(msg, withBuyLink = false) {
+  const box = document.getElementById('errorBox');
+  const text = document.getElementById('errorText');
+  text.innerHTML = msg + (withBuyLink ? ' <button class="link" onclick="location.hash=\'#credits\'">Kredit sotib olish →</button>' : '');
+  box.classList.add('show');
+}
+
+function resetForm() {
+  document.getElementById('promptInput').value = '';
+  clearImage();
+  hideResultStates();
+  document.getElementById('generateBtn').disabled = false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// HISTORY
+// ─────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const list = document.getElementById('historyList');
+  if (!state.token) {
+    list.innerHTML = '<div class="empty-state">Tarixni ko\'rish uchun kiring</div>';
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/history`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!data.items || !data.items.length) {
+      list.innerHTML = '<div class="empty-state">Hali video yaratmagansiz</div>';
+      return;
+    }
+    const statusLabel = { completed: 'Tayyor', processing: 'Jarayonda', failed: 'Xato' };
+    list.innerHTML = data.items.map(item => `
+      <div class="history-item">
+        <div class="history-thumb">
+          ${item.status === 'completed' && item.videoUrl
+            ? `<video src="${item.videoUrl}" muted></video>`
+            : `<span style="font-size:20px">${item.status === 'failed' ? '⚠️' : '⏳'}</span>`}
+        </div>
+        <div class="history-info">
+          <div class="history-prompt">${escapeHtml(item.prompt)}</div>
+          <div class="history-meta">
+            <span class="status-badge ${item.status}">${statusLabel[item.status] || item.status}</span>
+            &nbsp;${item.aspectRatio} · ${item.duration}s
+          </div>
+        </div>
+        ${item.status === 'completed' && item.videoUrl ? `
+          <a class="dl-btn" href="${item.videoUrl}" download title="Yuklab olish">⬇</a>
+        ` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    list.innerHTML = '<div class="empty-state">Tarixni yuklab bo\'lmadi</div>';
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ─────────────────────────────────────────────────────────────
+// CREDITS / PAYMENTS
+// ─────────────────────────────────────────────────────────────
+async function loadPackages() {
+  try {
+    const res = await fetch(`${API}/payment/packages`);
+    const data = await res.json();
+    const grid = document.getElementById('pkgGrid');
+    grid.innerHTML = data.packages.map((p, i) => `
+      <div class="pkg-card ${i === 1 ? 'active' : ''}" data-id="${p.id}" data-credits="${p.credits}">
+        <div class="pkg-credits">${p.credits}</div>
+        <div class="pkg-price">${p.priceUZS.toLocaleString('ru-RU')} so'm</div>
+      </div>
+    `).join('');
+    state.selectedPackage = data.packages[1]?.id || data.packages[0]?.id;
+  } catch (err) { /* ignore */ }
+}
+document.getElementById('pkgGrid').addEventListener('click', (e) => {
+  const card = e.target.closest('.pkg-card');
+  if (!card) return;
+  document.querySelectorAll('.pkg-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  state.selectedPackage = card.dataset.id;
+});
+document.getElementById('providerRow').addEventListener('click', (e) => {
+  const opt = e.target.closest('.provider-opt');
+  if (!opt) return;
+  document.querySelectorAll('.provider-opt').forEach(o => o.classList.remove('active'));
+  opt.classList.add('active');
+  state.selectedProvider = opt.dataset.provider;
+});
+
+async function buyCredits() {
+  if (!state.token) { openAuth(); return; }
+  if (!state.selectedPackage) { showToast('Paket tanlang'); return; }
+  try {
+    const res = await fetch(`${API}/payment/initiate`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ packageId: state.selectedPackage, provider: state.selectedProvider }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Xatolik');
+    window.location.href = data.checkoutUrl;
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────
+document.getElementById('creditsPill').addEventListener('click', () => {
+  if (!state.token) openAuth();
+});
+
+(async function init() {
+  await loadMe();
+  if (!state.token) updateCreditsUI();
+  loadHistory();
+  loadPackages();
+})();
+</script>
+</body>
+</html>
